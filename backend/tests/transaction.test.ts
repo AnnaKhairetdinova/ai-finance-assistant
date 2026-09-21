@@ -67,6 +67,15 @@ async function getTransactions(token?: string, query = "") {
   return fetch(`http://127.0.0.1:${port}/api/transactions${query}`, { headers });
 }
 
+async function getTransaction(uuid: string, token?: string, query = "") {
+  const headers: Record<string, string> = {};
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
+  return fetch(`http://127.0.0.1:${port}/api/transactions/${uuid}${query}`, { headers });
+}
+
 async function createDbTransaction(
   userUuid: string,
   data: {
@@ -379,5 +388,94 @@ describe("GET /api/transactions", () => {
     const body = await response.json();
     assert.equal(Array.isArray(body), true);
     assert.equal((body as unknown[]).length, 0);
+  });
+});
+
+describe("GET /api/transactions/:uuid", () => {
+  const missingUuid = "00000000-0000-4000-8000-000000000001";
+
+  it("rejects a request without JWT", async () => {
+    const response = await getTransaction(missingUuid);
+
+    assert.equal(response.status, 401);
+    assert.deepEqual(await response.json(), { error: "Unauthorized" });
+  });
+
+  it("rejects a request with an invalid JWT", async () => {
+    const response = await getTransaction(missingUuid, "invalid-token");
+
+    assert.equal(response.status, 401);
+    assert.deepEqual(await response.json(), { error: "Unauthorized" });
+  });
+
+  it("returns the current user's transaction", async () => {
+    const user = await createUser();
+    const transaction = await createDbTransaction(user.uuid, {
+      description: "Lunch",
+      amount: "1250.50",
+      transactionDate: new Date("2026-09-21T10:00:00.000Z"),
+    });
+
+    const response = await getTransaction(transaction.uuid, createAccessToken(user.uuid));
+    assert.equal(response.status, 200);
+
+    const body = (await response.json()) as Record<string, unknown>;
+    assertPublicTransaction(body);
+    assert.equal(body.uuid, transaction.uuid);
+    assert.equal(body.type, "expense");
+    assert.equal(body.amount, "1250.50");
+    assert.equal(body.category, "food");
+    assert.equal(body.description, "Lunch");
+    assert.equal(body.transactionDate, "2026-09-21T10:00:00.000Z");
+  });
+
+  it("returns 404 when the transaction does not exist", async () => {
+    const user = await createUser();
+    const response = await getTransaction(missingUuid, createAccessToken(user.uuid));
+
+    assert.equal(response.status, 404);
+    assert.deepEqual(await response.json(), { error: "Transaction not found" });
+  });
+
+  it("returns 404 when the transaction belongs to another user", async () => {
+    const userA = await createUser();
+    const userB = await createUser();
+    const transactionB = await createDbTransaction(userB.uuid, {
+      description: "B1",
+      transactionDate: new Date("2026-09-21T00:00:00.000Z"),
+    });
+
+    const response = await getTransaction(transactionB.uuid, createAccessToken(userA.uuid));
+
+    assert.equal(response.status, 404);
+    assert.deepEqual(await response.json(), { error: "Transaction not found" });
+  });
+
+  it("rejects an invalid transaction UUID", async () => {
+    const user = await createUser();
+    const response = await getTransaction("not-a-uuid", createAccessToken(user.uuid));
+
+    assert.equal(response.status, 400);
+    assert.deepEqual(await response.json(), { error: "Invalid transaction UUID" });
+  });
+
+  it("ignores userUuid query parameter for ownership", async () => {
+    const userA = await createUser();
+    const userB = await createUser();
+    const transactionA = await createDbTransaction(userA.uuid, {
+      description: "A1",
+      amount: "1250.50",
+      transactionDate: new Date("2026-09-21T10:00:00.000Z"),
+    });
+
+    const response = await getTransaction(
+      transactionA.uuid,
+      createAccessToken(userA.uuid),
+      `?userUuid=${userB.uuid}`,
+    );
+
+    assert.equal(response.status, 200);
+    const body = (await response.json()) as { uuid: string };
+    assert.equal(body.uuid, transactionA.uuid);
   });
 });
