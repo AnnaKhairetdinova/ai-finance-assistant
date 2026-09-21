@@ -24,4 +24,21 @@ export const transactionRepository = {
       },
     });
   },
+
+  findManyByUserUuid(userUuid: string) {
+    return prisma.transaction.findMany({
+      where: { userUuid },
+      orderBy: [{ transactionDate: "desc" }, { createdAt: "desc" }],
+      select: {
+        uuid: true,
+        type: true,
+        amount: true,
+        category: true,
+        description: true,
+        transactionDate: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+  },
 };

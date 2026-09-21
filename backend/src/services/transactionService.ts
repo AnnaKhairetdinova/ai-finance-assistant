@@ -22,3 +22,8 @@ export async function createTransaction(
   const transaction = await transactionRepository.create(input);
   return toTransactionResponse(transaction);
 }
+
+export async function listUserTransactions(userUuid: string): Promise<TransactionResponse[]> {
+  const transactions = await transactionRepository.findManyByUserUuid(userUuid);
+  return transactions.map(toTransactionResponse);
+}
