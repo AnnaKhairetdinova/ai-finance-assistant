@@ -1,6 +1,17 @@
 import type { CreateTransactionInput } from "../types/transaction.js";
 import { prisma } from "../config/prisma.js";
 
+const publicTransactionSelect = {
+  uuid: true,
+  type: true,
+  amount: true,
+  category: true,
+  description: true,
+  transactionDate: true,
+  createdAt: true,
+  updatedAt: true,
+} as const;
+
 export const transactionRepository = {
   create(data: CreateTransactionInput) {
     return prisma.transaction.create({
@@ -12,16 +23,7 @@ export const transactionRepository = {
         description: data.description,
         transactionDate: data.transactionDate,
       },
-      select: {
-        uuid: true,
-        type: true,
-        amount: true,
-        category: true,
-        description: true,
-        transactionDate: true,
-        createdAt: true,
-        updatedAt: true,
-      },
+      select: publicTransactionSelect,
     });
   },
 
@@ -29,16 +31,17 @@ export const transactionRepository = {
     return prisma.transaction.findMany({
       where: { userUuid },
       orderBy: [{ transactionDate: "desc" }, { createdAt: "desc" }],
-      select: {
-        uuid: true,
-        type: true,
-        amount: true,
-        category: true,
-        description: true,
-        transactionDate: true,
-        createdAt: true,
-        updatedAt: true,
+      select: publicTransactionSelect,
+    });
+  },
+
+  findByUuidAndUserUuid(transactionUuid: string, userUuid: string) {
+    return prisma.transaction.findFirst({
+      where: {
+        uuid: transactionUuid,
+        userUuid,
       },
+      select: publicTransactionSelect,
     });
   },
 };

@@ -24,3 +24,7 @@ export const createTransactionSchema = z.object({
 export function parseCreateTransactionBody(body: unknown) {
   return createTransactionSchema.parse(body);
 }
+
+export function parseTransactionUuid(uuid: unknown) {
+  return z.uuid({ error: "Invalid transaction UUID" }).parse(uuid);
+}

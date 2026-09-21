@@ -1,5 +1,6 @@
 import { transactionRepository } from "../repositories/transactionRepository.js";
 import type { CreateTransactionInput, TransactionResponse } from "../types/transaction.js";
+import { HttpError } from "../utils/httpError.js";
 
 function toTransactionResponse(
   transaction: Awaited<ReturnType<typeof transactionRepository.create>>,
@@ -26,4 +27,20 @@ export async function createTransaction(
 export async function listUserTransactions(userUuid: string): Promise<TransactionResponse[]> {
   const transactions = await transactionRepository.findManyByUserUuid(userUuid);
   return transactions.map(toTransactionResponse);
+}
+
+export async function getTransactionByUuid(
+  transactionUuid: string,
+  userUuid: string,
+): Promise<TransactionResponse> {
+  const transaction = await transactionRepository.findByUuidAndUserUuid(
+    transactionUuid,
+    userUuid,
+  );
+
+  if (!transaction) {
+    throw new HttpError(404, "Transaction not found");
+  }
+
+  return toTransactionResponse(transaction);
 }

@@ -1,6 +1,6 @@
 import type { NextFunction, Request, Response } from "express";
-import { createTransaction, listUserTransactions } from "../services/transactionService.js";
-import { parseCreateTransactionBody } from "../validators/transactionValidator.js";
+import { createTransaction, getTransactionByUuid, listUserTransactions } from "../services/transactionService.js";
+import { parseCreateTransactionBody, parseTransactionUuid } from "../validators/transactionValidator.js";
 
 export async function create(req: Request, res: Response, next: NextFunction) {
   try {
@@ -19,6 +19,16 @@ export async function list(req: Request, res: Response, next: NextFunction) {
   try {
     const transactions = await listUserTransactions(req.user.uuid);
     res.status(200).json(transactions);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function getByUuid(req: Request, res: Response, next: NextFunction) {
+  try {
+    const transactionUuid = parseTransactionUuid(req.params.uuid);
+    const transaction = await getTransactionByUuid(transactionUuid, req.user.uuid);
+    res.status(200).json(transaction);
   } catch (error) {
     next(error);
   }
