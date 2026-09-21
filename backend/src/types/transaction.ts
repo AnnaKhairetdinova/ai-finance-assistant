@@ -9,6 +9,14 @@ export type CreateTransactionInput = {
   transactionDate: Date;
 };
 
+export type UpdateTransactionInput = {
+  type?: TransactionType;
+  amount?: string;
+  category?: TransactionCategory;
+  description?: string;
+  transactionDate?: Date;
+};
+
 export type TransactionResponse = {
   uuid: string;
   type: TransactionType;

@@ -1,5 +1,9 @@
 import { transactionRepository } from "../repositories/transactionRepository.js";
-import type { CreateTransactionInput, TransactionResponse } from "../types/transaction.js";
+import type {
+  CreateTransactionInput,
+  TransactionResponse,
+  UpdateTransactionInput,
+} from "../types/transaction.js";
 import { HttpError } from "../utils/httpError.js";
 
 function toTransactionResponse(
@@ -43,4 +47,33 @@ export async function getTransactionByUuid(
   }
 
   return toTransactionResponse(transaction);
+}
+
+export async function updateTransaction(
+  transactionUuid: string,
+  userUuid: string,
+  data: UpdateTransactionInput,
+): Promise<TransactionResponse> {
+  const transaction = await transactionRepository.updateByUuidAndUserUuid(
+    transactionUuid,
+    userUuid,
+    data,
+  );
+
+  if (!transaction) {
+    throw new HttpError(404, "Transaction not found");
+  }
+
+  return toTransactionResponse(transaction);
+}
+
+export async function deleteTransaction(transactionUuid: string, userUuid: string): Promise<void> {
+  const deletedCount = await transactionRepository.deleteByUuidAndUserUuid(
+    transactionUuid,
+    userUuid,
+  );
+
+  if (deletedCount === 0) {
+    throw new HttpError(404, "Transaction not found");
+  }
 }

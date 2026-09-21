@@ -25,6 +25,16 @@ export function parseCreateTransactionBody(body: unknown) {
   return createTransactionSchema.parse(body);
 }
 
+export const updateTransactionSchema = createTransactionSchema
+  .partial()
+  .refine((data) => Object.keys(data).length > 0, {
+    error: "At least one field is required",
+  });
+
+export function parseUpdateTransactionBody(body: unknown) {
+  return updateTransactionSchema.parse(body);
+}
+
 export function parseTransactionUuid(uuid: unknown) {
   return z.uuid({ error: "Invalid transaction UUID" }).parse(uuid);
 }

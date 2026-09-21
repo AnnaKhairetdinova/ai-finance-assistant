@@ -1,4 +1,4 @@
-import type { CreateTransactionInput } from "../types/transaction.js";
+import type { CreateTransactionInput, UpdateTransactionInput } from "../types/transaction.js";
 import { prisma } from "../config/prisma.js";
 
 const publicTransactionSelect = {
@@ -43,5 +43,42 @@ export const transactionRepository = {
       },
       select: publicTransactionSelect,
     });
+  },
+
+  async updateByUuidAndUserUuid(
+    transactionUuid: string,
+    userUuid: string,
+    data: UpdateTransactionInput,
+  ) {
+    const result = await prisma.transaction.updateMany({
+      where: {
+        uuid: transactionUuid,
+        userUuid,
+      },
+      data,
+    });
+
+    if (result.count === 0) {
+      return null;
+    }
+
+    return prisma.transaction.findFirst({
+      where: {
+        uuid: transactionUuid,
+        userUuid,
+      },
+      select: publicTransactionSelect,
+    });
+  },
+
+  async deleteByUuidAndUserUuid(transactionUuid: string, userUuid: string) {
+    const result = await prisma.transaction.deleteMany({
+      where: {
+        uuid: transactionUuid,
+        userUuid,
+      },
+    });
+
+    return result.count;
   },
 };
