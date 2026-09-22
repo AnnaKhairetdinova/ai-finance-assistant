@@ -1,5 +1,6 @@
 import express from "express";
 import { errorHandler } from "./middleware/errorHandler.js";
+import { aiRoutes } from "./routes/aiRoutes.js";
 import { authRoutes } from "./routes/authRoutes.js";
 import { transactionRoutes } from "./routes/transactionRoutes.js";
 
@@ -25,6 +26,7 @@ app.use((req, res, next) => {
 app.use(express.json());
 app.use("/api/auth", authRoutes);
 app.use("/api/transactions", transactionRoutes);
+app.use("/api/ai", aiRoutes);
 app.use(errorHandler);
 
 export default app;
