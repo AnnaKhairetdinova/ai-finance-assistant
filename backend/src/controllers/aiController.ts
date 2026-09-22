@@ -5,8 +5,8 @@ import { parseAIInsightsBody } from "../validators/aiValidator.js";
 export async function generateInsights(req: Request, res: Response, next: NextFunction) {
   try {
     const period = parseAIInsightsBody(req.body);
-    const context = await aiService.generateInsights(req.user.uuid, period);
-    res.status(200).json(context);
+    const result = await aiService.generateInsights(req.user.uuid, period);
+    res.status(200).json(result);
   } catch (error) {
     next(error);
   }

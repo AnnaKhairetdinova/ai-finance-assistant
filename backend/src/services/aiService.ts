@@ -1,12 +1,7 @@
-import type { AIInsightsContext, AIInsightsProvider } from "../types/ai.js";
+import type { AIInsightsContext, AIInsightsProvider, AIInsightsResult } from "../types/ai.js";
 import type { TransactionStatsQuery, TransactionStatsResponse } from "../types/transaction.js";
+import { GroqProvider } from "../providers/groqProvider.js";
 import { getTransactionStats } from "./transactionService.js";
-
-class PreparedContextProvider implements AIInsightsProvider {
-  async generate(context: AIInsightsContext): Promise<AIInsightsContext> {
-    return context;
-  }
-}
 
 function toAIInsightsContext(stats: TransactionStatsResponse): AIInsightsContext {
   return {
@@ -21,15 +16,16 @@ function toAIInsightsContext(stats: TransactionStatsResponse): AIInsightsContext
 }
 
 export class AIService {
-  constructor(private readonly provider: AIInsightsProvider = new PreparedContextProvider()) {}
+  constructor(private readonly provider: AIInsightsProvider) {}
 
   async generateInsights(
     userUuid: string,
     period: TransactionStatsQuery,
-  ): Promise<AIInsightsContext> {
+  ): Promise<AIInsightsResult> {
     const stats = await getTransactionStats(userUuid, period);
-    return this.provider.generate(toAIInsightsContext(stats));
+    const context = toAIInsightsContext(stats);
+    return this.provider.generate(context);
   }
 }
 
-export const aiService = new AIService();
+export const aiService = new AIService(new GroqProvider());
