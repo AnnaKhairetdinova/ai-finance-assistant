@@ -3,11 +3,13 @@ import {
   createTransaction,
   deleteTransaction,
   getTransactionByUuid,
+  getTransactionStats,
   listUserTransactions,
   updateTransaction,
 } from "../services/transactionService.js";
 import {
   parseCreateTransactionBody,
+  parseTransactionStatsQuery,
   parseTransactionUuid,
   parseUpdateTransactionBody,
 } from "../validators/transactionValidator.js";
@@ -60,6 +62,16 @@ export async function remove(req: Request, res: Response, next: NextFunction) {
     const transactionUuid = parseTransactionUuid(req.params.uuid);
     await deleteTransaction(transactionUuid, req.user.uuid);
     res.status(204).send();
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function getStats(req: Request, res: Response, next: NextFunction) {
+  try {
+    const period = parseTransactionStatsQuery(req.query);
+    const stats = await getTransactionStats(req.user.uuid, period);
+    res.status(200).json(stats);
   } catch (error) {
     next(error);
   }

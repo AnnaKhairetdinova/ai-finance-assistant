@@ -81,4 +81,33 @@ export const transactionRepository = {
 
     return result.count;
   },
+
+  async getStatsByUserUuid(userUuid: string, from: Date, to: Date) {
+    const periodFilter = {
+      userUuid,
+      transactionDate: {
+        gte: from,
+        lte: to,
+      },
+    };
+
+    const [totals, byCategory] = await Promise.all([
+      prisma.transaction.groupBy({
+        by: ["type"],
+        where: periodFilter,
+        _sum: { amount: true },
+      }),
+      prisma.transaction.groupBy({
+        by: ["category"],
+        where: {
+          ...periodFilter,
+          type: "expense",
+        },
+        _sum: { amount: true },
+        orderBy: [{ _sum: { amount: "desc" } }, { category: "asc" }],
+      }),
+    ]);
+
+    return { totals, byCategory };
+  },
 };

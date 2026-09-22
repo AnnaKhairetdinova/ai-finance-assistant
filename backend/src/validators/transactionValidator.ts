@@ -38,3 +38,18 @@ export function parseUpdateTransactionBody(body: unknown) {
 export function parseTransactionUuid(uuid: unknown) {
   return z.uuid({ error: "Invalid transaction UUID" }).parse(uuid);
 }
+
+const statsDateSchema = z.iso.date({ error: "Invalid date" });
+
+export const transactionStatsQuerySchema = z
+  .object({
+    from: z.string({ error: "from is required" }).pipe(statsDateSchema),
+    to: z.string({ error: "to is required" }).pipe(statsDateSchema),
+  })
+  .refine((data) => data.from <= data.to, {
+    error: "from cannot be later than to",
+  });
+
+export function parseTransactionStatsQuery(query: unknown) {
+  return transactionStatsQuerySchema.parse(query);
+}
