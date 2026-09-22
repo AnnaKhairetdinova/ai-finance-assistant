@@ -9,6 +9,16 @@ export function formatTransactionAmount(amount: string, type: TransactionType) {
   return `${sign} ${groupedInteger}.${fraction} ₽`;
 }
 
+export function formatMoneyAmount(amount: string) {
+  const isNegative = amount.startsWith("-");
+  const unsigned = isNegative ? amount.slice(1) : amount;
+  const [integerPart = "0", fractionPart = ""] = unsigned.split(".");
+  const groupedInteger = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+  const fraction = `${fractionPart}00`.slice(0, 2);
+
+  return `${isNegative ? "-" : ""}${groupedInteger}.${fraction} ₽`;
+}
+
 export function formatTransactionDate(value: string) {
   const date = new Date(value);
 

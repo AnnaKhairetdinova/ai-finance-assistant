@@ -1,5 +1,5 @@
 import { api } from "./client";
-import type { CreateTransactionInput, Transaction } from "../types/transaction";
+import type { CreateTransactionInput, Transaction, TransactionStats } from "../types/transaction";
 
 export function getTransactions() {
   return api.get<Transaction[]>("/api/transactions");
@@ -15,4 +15,9 @@ export function updateTransaction(uuid: string, input: CreateTransactionInput) {
 
 export function deleteTransaction(uuid: string) {
   return api.delete(`/api/transactions/${uuid}`);
+}
+
+export function getTransactionStats(from: string, to: string) {
+  const query = new URLSearchParams({ from, to });
+  return api.get<TransactionStats>(`/api/transactions/stats?${query.toString()}`);
 }

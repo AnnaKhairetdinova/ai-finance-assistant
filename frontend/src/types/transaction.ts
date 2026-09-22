@@ -43,3 +43,21 @@ export const TRANSACTION_CATEGORIES: TransactionCategory[] = [
 ];
 
 export const TRANSACTION_TYPES: TransactionType[] = ["expense", "income"];
+
+export type TransactionStatsPeriod = {
+  from: string;
+  to: string;
+};
+
+export type TransactionStatsCategory = {
+  category: TransactionCategory;
+  amount: string;
+};
+
+export type TransactionStats = {
+  period: TransactionStatsPeriod;
+  income: string;
+  expense: string;
+  balance: string;
+  byCategory: TransactionStatsCategory[];
+};
