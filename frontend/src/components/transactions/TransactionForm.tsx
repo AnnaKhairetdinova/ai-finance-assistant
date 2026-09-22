@@ -1,6 +1,6 @@
 import { FormEvent, useState } from "react";
 import { ApiError } from "../../api/client";
-import { createTransaction } from "../../api/transactions";
+import { createTransaction, updateTransaction } from "../../api/transactions";
 import {
   TRANSACTION_CATEGORIES,
   TRANSACTION_TYPES,
@@ -9,9 +9,12 @@ import {
   type TransactionCategory,
   type TransactionType,
 } from "../../types/transaction";
+import { toDateInputValue } from "../../utils/transactionFormat";
 
 type TransactionFormProps = {
-  onCreated: (transaction: Transaction) => void;
+  transaction?: Transaction;
+  onSuccess: (transaction: Transaction) => void;
+  onCancel?: () => void;
 };
 
 function getLocalDateInputValue(date = new Date()) {
@@ -22,7 +25,17 @@ function getLocalDateInputValue(date = new Date()) {
   return `${year}-${month}-${day}`;
 }
 
-function getInitialFormState(): CreateTransactionInput {
+function getInitialFormState(transaction?: Transaction): CreateTransactionInput {
+  if (transaction) {
+    return {
+      type: transaction.type,
+      amount: transaction.amount,
+      category: transaction.category,
+      description: transaction.description,
+      transactionDate: toDateInputValue(transaction.transactionDate),
+    };
+  }
+
   return {
     type: "expense",
     amount: "",
@@ -52,16 +65,20 @@ function isPositiveDecimalAmount(value: string) {
   return significantInteger !== "" || significantFraction !== "";
 }
 
-function getCreateErrorMessage(error: unknown) {
+function getSubmitErrorMessage(error: unknown, isEditing: boolean) {
   if (error instanceof ApiError && error.status === 400 && error.message.trim()) {
     return error.message;
   }
 
-  return "Не удалось добавить транзакцию. Попробуйте ещё раз.";
+  return isEditing
+    ? "Не удалось сохранить транзакцию. Попробуйте ещё раз."
+    : "Не удалось добавить транзакцию. Попробуйте ещё раз.";
 }
 
-export function TransactionForm({ onCreated }: TransactionFormProps) {
-  const [form, setForm] = useState(getInitialFormState);
+export function TransactionForm({ transaction, onSuccess, onCancel }: TransactionFormProps) {
+  const isEditing = Boolean(transaction);
+  const fieldId = transaction?.uuid ?? "new";
+  const [form, setForm] = useState(() => getInitialFormState(transaction));
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -119,19 +136,27 @@ export function TransactionForm({ onCreated }: TransactionFormProps) {
     setError("");
     setIsSubmitting(true);
 
+    const payload: CreateTransactionInput = {
+      type: form.type,
+      amount: form.amount.trim(),
+      category: form.category,
+      description: form.description.trim(),
+      transactionDate: form.transactionDate,
+    };
+
     try {
-      const created = await createTransaction({
-        type: form.type,
-        amount: form.amount.trim(),
-        category: form.category,
-        description: form.description.trim(),
-        transactionDate: form.transactionDate,
-      });
-      onCreated(created);
-      setForm(getInitialFormState());
-      setSuccess("Транзакция добавлена.");
+      const saved = transaction
+        ? await updateTransaction(transaction.uuid, payload)
+        : await createTransaction(payload);
+
+      onSuccess(saved);
+
+      if (!transaction) {
+        setForm(getInitialFormState());
+        setSuccess("Транзакция добавлена.");
+      }
     } catch (requestError) {
-      setError(getCreateErrorMessage(requestError));
+      setError(getSubmitErrorMessage(requestError, isEditing));
     } finally {
       setIsSubmitting(false);
     }
@@ -139,7 +164,7 @@ export function TransactionForm({ onCreated }: TransactionFormProps) {
 
   return (
     <form className="transaction-form" onSubmit={handleSubmit} noValidate>
-      <h2>Новая транзакция</h2>
+      <h2>{isEditing ? "Редактирование транзакции" : "Новая транзакция"}</h2>
 
       {error ? (
         <p className="auth-error" role="alert">
@@ -158,7 +183,7 @@ export function TransactionForm({ onCreated }: TransactionFormProps) {
         <label>
           <input
             type="radio"
-            name="type"
+            name={`${fieldId}-type`}
             value="expense"
             checked={form.type === "expense"}
             onChange={() => setForm((current) => ({ ...current, type: "expense" }))}
@@ -168,7 +193,7 @@ export function TransactionForm({ onCreated }: TransactionFormProps) {
         <label>
           <input
             type="radio"
-            name="type"
+            name={`${fieldId}-type`}
             value="income"
             checked={form.type === "income"}
             onChange={() => setForm((current) => ({ ...current, type: "income" }))}
@@ -177,9 +202,9 @@ export function TransactionForm({ onCreated }: TransactionFormProps) {
         </label>
       </fieldset>
 
-      <label htmlFor="amount">Сумма</label>
+      <label htmlFor={`${fieldId}-amount`}>Сумма</label>
       <input
-        id="amount"
+        id={`${fieldId}-amount`}
         name="amount"
         type="number"
         inputMode="decimal"
@@ -190,9 +215,9 @@ export function TransactionForm({ onCreated }: TransactionFormProps) {
         required
       />
 
-      <label htmlFor="category">Категория</label>
+      <label htmlFor={`${fieldId}-category`}>Категория</label>
       <select
-        id="category"
+        id={`${fieldId}-category`}
         name="category"
         value={form.category}
         onChange={(event) =>
@@ -210,9 +235,9 @@ export function TransactionForm({ onCreated }: TransactionFormProps) {
         ))}
       </select>
 
-      <label htmlFor="description">Описание</label>
+      <label htmlFor={`${fieldId}-description`}>Описание</label>
       <textarea
-        id="description"
+        id={`${fieldId}-description`}
         name="description"
         rows={3}
         value={form.description}
@@ -222,9 +247,9 @@ export function TransactionForm({ onCreated }: TransactionFormProps) {
         required
       />
 
-      <label htmlFor="transactionDate">Дата</label>
+      <label htmlFor={`${fieldId}-transactionDate`}>Дата</label>
       <input
-        id="transactionDate"
+        id={`${fieldId}-transactionDate`}
         name="transactionDate"
         type="date"
         value={form.transactionDate}
@@ -234,9 +259,16 @@ export function TransactionForm({ onCreated }: TransactionFormProps) {
         required
       />
 
-      <button type="submit" disabled={isSubmitting}>
-        {isSubmitting ? "Добавление..." : "Добавить"}
-      </button>
+      <div className="transaction-form__actions">
+        <button type="submit" disabled={isSubmitting}>
+          {isSubmitting ? (isEditing ? "Сохранение..." : "Добавление...") : isEditing ? "Сохранить" : "Добавить"}
+        </button>
+        {onCancel ? (
+          <button type="button" className="button-secondary" onClick={onCancel} disabled={isSubmitting}>
+            Отмена
+          </button>
+        ) : null}
+      </div>
     </form>
   );
 }

@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
-import { getTransactions } from "../api/transactions";
+import { ApiError } from "../api/client";
+import { deleteTransaction, getTransactions } from "../api/transactions";
 import { TransactionForm } from "../components/transactions/TransactionForm";
 import { TransactionList } from "../components/transactions/TransactionList";
 import type { Transaction } from "../types/transaction";
 
-function insertCreatedTransaction(transactions: Transaction[], created: Transaction) {
-  return [...transactions, created].sort((left, right) => {
+function sortTransactions(transactions: Transaction[]) {
+  return [...transactions].sort((left, right) => {
     if (left.transactionDate !== right.transactionDate) {
       return left.transactionDate < right.transactionDate ? 1 : -1;
     }
@@ -14,11 +15,23 @@ function insertCreatedTransaction(transactions: Transaction[], created: Transact
   });
 }
 
+function getDeleteErrorMessage(error: unknown) {
+  if (error instanceof ApiError && error.status === 400 && error.message.trim()) {
+    return error.message;
+  }
+
+  return "Не удалось удалить транзакцию. Попробуйте ещё раз.";
+}
+
 export function TransactionsPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
-  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [notice, setNotice] = useState("");
+  const [actionError, setActionError] = useState("");
+  const [isCreateFormOpen, setIsCreateFormOpen] = useState(false);
+  const [editingUuid, setEditingUuid] = useState<string | null>(null);
+  const [deletingUuid, setDeletingUuid] = useState<string | null>(null);
 
   useEffect(() => {
     let isActive = true;
@@ -50,19 +63,60 @@ export function TransactionsPage() {
     };
   }, []);
 
+  async function handleDelete(uuid: string) {
+    if (deletingUuid) {
+      return;
+    }
+
+    const confirmed = window.confirm("Удалить эту транзакцию?");
+    if (!confirmed) {
+      return;
+    }
+
+    setActionError("");
+    setNotice("");
+    setDeletingUuid(uuid);
+
+    try {
+      await deleteTransaction(uuid);
+      setTransactions((current) => current.filter((transaction) => transaction.uuid !== uuid));
+      if (editingUuid === uuid) {
+        setEditingUuid(null);
+      }
+      setNotice("Транзакция удалена.");
+    } catch (requestError) {
+      setActionError(getDeleteErrorMessage(requestError));
+    } finally {
+      setDeletingUuid(null);
+    }
+  }
+
   return (
     <main className="transactions-page">
       <div className="transactions-page__header">
         <h1>Транзакции</h1>
-        <button type="button" onClick={() => setIsFormOpen((open) => !open)}>
-          {isFormOpen ? "Скрыть форму" : "Добавить транзакцию"}
+        <button type="button" onClick={() => setIsCreateFormOpen((open) => !open)}>
+          {isCreateFormOpen ? "Скрыть форму" : "Добавить транзакцию"}
         </button>
       </div>
 
-      {isFormOpen ? (
+      {notice ? (
+        <p className="form-success" role="status">
+          {notice}
+        </p>
+      ) : null}
+
+      {actionError ? (
+        <p className="page-status page-status--error" role="alert">
+          {actionError}
+        </p>
+      ) : null}
+
+      {isCreateFormOpen ? (
         <TransactionForm
-          onCreated={(created) => {
-            setTransactions((current) => insertCreatedTransaction(current, created));
+          onSuccess={(created) => {
+            setTransactions((current) => sortTransactions([...current, created]));
+            setNotice("");
           }}
         />
       ) : null}
@@ -80,7 +134,30 @@ export function TransactionsPage() {
       ) : null}
 
       {!isLoading && !error && transactions.length > 0 ? (
-        <TransactionList transactions={transactions} />
+        <TransactionList
+          transactions={transactions}
+          editingUuid={editingUuid}
+          deletingUuid={deletingUuid}
+          onEdit={(uuid) => {
+            setActionError("");
+            setNotice("");
+            setEditingUuid(uuid);
+          }}
+          onCancelEdit={() => setEditingUuid(null)}
+          onUpdated={(updated) => {
+            setTransactions((current) =>
+              sortTransactions(
+                current.map((transaction) =>
+                  transaction.uuid === updated.uuid ? updated : transaction,
+                ),
+              ),
+            );
+            setEditingUuid(null);
+            setActionError("");
+            setNotice("Транзакция сохранена.");
+          }}
+          onDelete={handleDelete}
+        />
       ) : null}
     </main>
   );

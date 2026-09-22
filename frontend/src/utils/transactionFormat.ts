@@ -22,3 +22,17 @@ export function formatTransactionDate(value: string) {
 
   return `${day}.${month}.${year}`;
 }
+
+export function toDateInputValue(value: string) {
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return value.slice(0, 10);
+  }
+
+  const day = String(date.getUTCDate()).padStart(2, "0");
+  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const year = date.getUTCFullYear();
+
+  return `${year}-${month}-${day}`;
+}
