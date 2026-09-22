@@ -103,20 +103,31 @@ async function deleteTransaction(uuid: string, token?: string, query = "") {
   });
 }
 
+async function getTransactionStats(token?: string, query = "") {
+  const headers: Record<string, string> = {};
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
+  return fetch(`http://127.0.0.1:${port}/api/transactions/stats${query}`, { headers });
+}
+
 async function createDbTransaction(
   userUuid: string,
   data: {
     description: string;
     amount?: string;
+    type?: "income" | "expense";
+    category?: "food" | "transport" | "shopping" | "entertainment" | "health" | "education" | "other";
     transactionDate: Date;
   },
 ) {
   return prisma.transaction.create({
     data: {
       userUuid,
-      type: "expense",
+      type: data.type ?? "expense",
       amount: data.amount ?? "100.00",
-      category: "food",
+      category: data.category ?? "food",
       description: data.description,
       transactionDate: data.transactionDate,
     },
@@ -829,5 +840,200 @@ describe("DELETE /api/transactions/:uuid", () => {
       where: { uuid: transactionA.uuid },
     });
     assert.equal(stored, null);
+  });
+});
+
+describe("GET /api/transactions/stats", () => {
+  const periodQuery = "?from=2026-09-01&to=2026-09-30";
+
+  it("rejects a request without JWT", async () => {
+    const response = await getTransactionStats(undefined, periodQuery);
+
+    assert.equal(response.status, 401);
+    assert.deepEqual(await response.json(), { error: "Unauthorized" });
+  });
+
+  it("rejects a request with an invalid JWT", async () => {
+    const response = await getTransactionStats("invalid-token", periodQuery);
+
+    assert.equal(response.status, 401);
+    assert.deepEqual(await response.json(), { error: "Unauthorized" });
+  });
+
+  it("rejects a request without from", async () => {
+    const user = await createUser();
+    const response = await getTransactionStats(createAccessToken(user.uuid), "?to=2026-09-30");
+
+    assert.equal(response.status, 400);
+  });
+
+  it("rejects a request without to", async () => {
+    const user = await createUser();
+    const response = await getTransactionStats(createAccessToken(user.uuid), "?from=2026-09-01");
+
+    assert.equal(response.status, 400);
+  });
+
+  it("rejects an invalid date", async () => {
+    const user = await createUser();
+    const response = await getTransactionStats(
+      createAccessToken(user.uuid),
+      "?from=invalid&to=2026-09-30",
+    );
+
+    assert.equal(response.status, 400);
+  });
+
+  it("rejects a period where from is later than to", async () => {
+    const user = await createUser();
+    const response = await getTransactionStats(
+      createAccessToken(user.uuid),
+      "?from=2026-09-30&to=2026-09-01",
+    );
+
+    assert.equal(response.status, 400);
+    assert.deepEqual(await response.json(), { error: "from cannot be later than to" });
+  });
+
+  it("returns zeros when the user has no transactions in the period", async () => {
+    const user = await createUser();
+    const response = await getTransactionStats(
+      createAccessToken(user.uuid),
+      "?from=2025-01-01&to=2025-01-31",
+    );
+
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), {
+      period: { from: "2025-01-01", to: "2025-01-31" },
+      income: "0.00",
+      expense: "0.00",
+      balance: "0.00",
+      byCategory: [],
+    });
+  });
+
+  it("aggregates income, expense, balance and expense categories", async () => {
+    const user = await createUser();
+    await createDbTransaction(user.uuid, {
+      description: "salary",
+      type: "income",
+      category: "other",
+      amount: "120000.00",
+      transactionDate: new Date("2026-09-05T10:00:00.000Z"),
+    });
+    await createDbTransaction(user.uuid, {
+      description: "freelance",
+      type: "income",
+      category: "education",
+      amount: "30000.00",
+      transactionDate: new Date("2026-09-10T10:00:00.000Z"),
+    });
+    await createDbTransaction(user.uuid, {
+      description: "food 1",
+      amount: "18500.00",
+      category: "food",
+      transactionDate: new Date("2026-09-02T00:00:00.000Z"),
+    });
+    await createDbTransaction(user.uuid, {
+      description: "transport",
+      amount: "7200.00",
+      category: "transport",
+      transactionDate: new Date("2026-09-15T12:00:00.000Z"),
+    });
+    await createDbTransaction(user.uuid, {
+      description: "shopping",
+      amount: "15000.00",
+      category: "shopping",
+      transactionDate: new Date("2026-09-30T23:59:59.999Z"),
+    });
+    await createDbTransaction(user.uuid, {
+      description: "outside before",
+      amount: "999.00",
+      transactionDate: new Date("2026-08-31T23:59:59.999Z"),
+    });
+    await createDbTransaction(user.uuid, {
+      description: "outside after",
+      amount: "999.00",
+      transactionDate: new Date("2026-10-01T00:00:00.000Z"),
+    });
+
+    const response = await getTransactionStats(createAccessToken(user.uuid), periodQuery);
+    assert.equal(response.status, 200);
+
+    const body = (await response.json()) as Record<string, unknown>;
+    assert.deepEqual(body.period, { from: "2026-09-01", to: "2026-09-30" });
+    assert.equal(body.income, "150000.00");
+    assert.equal(body.expense, "40700.00");
+    assert.equal(body.balance, "109300.00");
+    assert.equal(typeof body.income, "string");
+    assert.equal(typeof body.expense, "string");
+    assert.equal(typeof body.balance, "string");
+    assert.deepEqual(body.byCategory, [
+      { category: "food", amount: "18500.00" },
+      { category: "shopping", amount: "15000.00" },
+      { category: "transport", amount: "7200.00" },
+    ]);
+  });
+
+  it("sorts equal category amounts by category name", async () => {
+    const user = await createUser();
+    await createDbTransaction(user.uuid, {
+      description: "health",
+      amount: "100.00",
+      category: "health",
+      transactionDate: new Date("2026-09-10T00:00:00.000Z"),
+    });
+    await createDbTransaction(user.uuid, {
+      description: "entertainment",
+      amount: "100.00",
+      category: "entertainment",
+      transactionDate: new Date("2026-09-11T00:00:00.000Z"),
+    });
+
+    const response = await getTransactionStats(createAccessToken(user.uuid), periodQuery);
+    assert.equal(response.status, 200);
+
+    const body = (await response.json()) as {
+      byCategory: Array<{ category: string; amount: string }>;
+    };
+    assert.deepEqual(body.byCategory, [
+      { category: "entertainment", amount: "100.00" },
+      { category: "health", amount: "100.00" },
+    ]);
+  });
+
+  it("ignores another user's transactions and userUuid query", async () => {
+    const userA = await createUser();
+    const userB = await createUser();
+    await createDbTransaction(userA.uuid, {
+      description: "A expense",
+      amount: "50.00",
+      transactionDate: new Date("2026-09-10T00:00:00.000Z"),
+    });
+    await createDbTransaction(userB.uuid, {
+      description: "B expense",
+      amount: "900.00",
+      transactionDate: new Date("2026-09-10T00:00:00.000Z"),
+    });
+    await createDbTransaction(userB.uuid, {
+      description: "B income",
+      type: "income",
+      category: "other",
+      amount: "5000.00",
+      transactionDate: new Date("2026-09-10T00:00:00.000Z"),
+    });
+
+    const response = await getTransactionStats(
+      createAccessToken(userA.uuid),
+      `${periodQuery}&userUuid=${userB.uuid}`,
+    );
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), {
+      period: { from: "2026-09-01", to: "2026-09-30" },
+      income: "0.00",
+      expense: "50.00",
+      balance: "-50.00",
+      byCategory: [{ category: "food", amount: "50.00" }],
+    });
   });
 });
