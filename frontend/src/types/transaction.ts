@@ -21,3 +21,25 @@ export type Transaction = {
   createdAt: string;
   updatedAt: string;
 };
+
+export type CreateTransactionInput = {
+  type: TransactionType;
+  amount: string;
+  category: TransactionCategory;
+  description: string;
+  transactionDate: string;
+};
+
+export const TRANSACTION_CATEGORIES: TransactionCategory[] = [
+  "food",
+  "transport",
+  "shopping",
+  "entertainment",
+  "health",
+  "subscriptions",
+  "housing",
+  "education",
+  "other",
+];
+
+export const TRANSACTION_TYPES: TransactionType[] = ["expense", "income"];

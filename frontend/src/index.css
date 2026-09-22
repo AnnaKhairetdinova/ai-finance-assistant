@@ -156,3 +156,84 @@ body {
 .transaction-item--expense .transaction-item__amount {
   color: #b42318;
 }
+
+.transactions-page__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.transactions-page__header h1 {
+  margin: 0;
+}
+
+.transactions-page__header button,
+.transaction-form button {
+  font: inherit;
+  padding: 0.55rem 0.8rem;
+  border: 0;
+  border-radius: 6px;
+  background: #1f4b99;
+  color: #fff;
+  cursor: pointer;
+}
+
+.transaction-form {
+  display: grid;
+  gap: 0.65rem;
+  margin-bottom: 1rem;
+  padding: 1.25rem;
+  background: #fff;
+  border: 1px solid #d9dde3;
+  border-radius: 8px;
+}
+
+.transaction-form h2 {
+  margin: 0 0 0.25rem;
+  font-size: 1.15rem;
+}
+
+.transaction-form label,
+.transaction-form legend {
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.transaction-form input,
+.transaction-form select,
+.transaction-form textarea {
+  font: inherit;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid #c5cad3;
+  border-radius: 6px;
+}
+
+.transaction-form__type {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  display: flex;
+  gap: 1rem;
+}
+
+.transaction-form__type label {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-weight: 500;
+}
+
+.transaction-form button:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.form-success {
+  margin: 0;
+  padding: 0.6rem 0.75rem;
+  border-radius: 6px;
+  background: #e7f6ec;
+  color: #0f5132;
+}
